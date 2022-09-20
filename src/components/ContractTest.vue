@@ -44,9 +44,9 @@ import pstInitState from "./../files/pstInitState.json?raw";
 import sampleContractInitState from "./../files/sampleContractInitState.json?raw";
 import sampleContractSrc from "./../files/sampleContractSrc.js?raw";
 
-import { WarpFactory } from 'warp-contracts/web';
+import {LoggerFactory, WarpFactory} from 'warp-contracts/web';
 import Arweave from "arweave";
-import { createContractFromTx, createContract, interactWrite, readContract } from "smartweave";
+import {createContract, createContractFromTx} from "smartweave";
 
 export default {
     components: { VueJsonPretty },
@@ -156,8 +156,9 @@ export default {
                 txID: originalTxId,
             };
 
-            const originalTxIdDep  = await this.contract.writeInteraction(inputDeposit);
+            const originalTxIdDep  = await this.contract.writeInteraction(inputDeposit, {strict: true});
             console.log("DEPOSIT: " + JSON.stringify(originalTxIdDep));
+
 
             // Now read both contracts again
             await this.readContracts();
@@ -187,8 +188,8 @@ export default {
             
             // Mint tokens for user on PST contract
             let input = {
-                function: "mint",
-                qty: 10000
+              function: "mint",
+              qty: 10000
             };
 
             // Using Warp
@@ -223,7 +224,6 @@ export default {
             try {
                 const contract = this.warp.contract(contractId)
                     .setEvaluationOptions({ 
-                        allowUnsafeClient: true,
                         internalWrites: true,
                      })
                     .connect("use_wallet");
@@ -263,6 +263,8 @@ export default {
         },
     },
     async mounted() {
+      LoggerFactory.INST.logLevel('fatal');
+      LoggerFactory.INST.logLevel('debug', 'HandlerBasedContract');
         this.arweave = await Arweave.init({
             host: "localhost",
             port: "1984",

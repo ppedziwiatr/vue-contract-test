@@ -51,12 +51,12 @@ async function handle(state, action) {
   }
   if (input.function === "mint") {
     if (!input.qty) {
-        throw new ContractError("Missing qty.");
+      throw new ContractError("Missing qty.");
     }
     if (!(caller in state.balances)) {
-        balances[caller] = input.qty;
+      balances[caller] = input.qty;
     }
-}
+  }
   if (input.function === "deposit") {
     if (!input.txID) {
       throw new ContractError("The transaction is not valid.  Tokens were not transferred to the vehicle.");
@@ -79,15 +79,8 @@ async function handle(state, action) {
       txID: input.txID,
       qty: input.qty
     });
-    if (transferResult.type !== "ok") {
-      throw new ContractError("Unable to deposit token " + input.tokenId);
-    }
 
-    /*** For troubleshooting */
-    //state.transferResult = transferResult;
-    /*** For troubleshooting */
-
-    const tokenInfo = await getTokenInfo(input.tokenId);
+    const tokenInfo = getTokenInfo(transferResult.state);
     const txObj = {
       txID: input.txID,
       tokenId: input.tokenId,
@@ -174,11 +167,12 @@ async function handle(state, action) {
       }
     } catch (e) {
     }
-    return { result: { target, balance, vaultBal } };
+    return {result: {target, balance, vaultBal}};
   } else {
-    return { state };
+    return {state};
   }
 }
+
 function isArweaveAddress(addy) {
   const address = addy.toString().trim();
   if (!/[a-z0-9_-]{43}/i.test(address)) {
@@ -187,12 +181,22 @@ function isArweaveAddress(addy) {
   return address;
 }
 
-async function getTokenInfo(contractId) {
-  const assetState = await SmartWeave.contracts.readContractState(contractId);
-  const settings = new Map(assetState.settings);
+function getTokenInfo(currentTokenState) {
+
+  //console.log('====== AFTR CONTRACT manual readState PST state');
+
+  // note: this was the root cause of the issue.
+  // readContractState (in the getTokenInfo) was causing the callstack created by the internal write to be resetted.
+  // note2: it is also in general wrong and unnecessary - at this point the current state of the callee contract
+  // is in the result of the internal write.
+  // During a dry-run, when the internalWrite interaction is being generated on a contract -
+  // "SmartWeave.contracts.readContractState" on this contract will return state WITHOUT this currently generated transaction.
+  // const assetState = await SmartWeave.contracts.readContractState(contractId);
+  // console.log('====== AFTR CONTRACT manual readState PST state result', assetState);
+  const settings = new Map(currentTokenState.settings);
   return {
-    name: assetState.name,
-    ticker: assetState.ticker,
+    name: currentTokenState.name,
+    ticker: currentTokenState.ticker,
     logo: settings.get("communityLogo")
   };
 }
